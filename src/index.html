@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MIDI Pedalboard</title>
+	<script type="text/javascript">
+navigator.requestMIDIAccess()
+  .then(function(access) {
+
+	window.ma = access
+  
+     // Get lists of available MIDI controllers
+     const inputs = access.inputs.values();
+     const outputs = access.outputs.values();
+	 
+	 Array.from(inputs).forEach(i => {
+		i.onmidimessage = onMidiMessage
+		i.open()
+	 });
+	 
+	 Array.from(outputs).forEach(o => {
+		var sel = document.getElementById('outs');
+		var opt = document.createElement('option');
+		opt.appendChild(document.createTextNode(o.name));
+		opt.value = o.id; 
+		sel.appendChild(opt);	 
+	 });
+
+     access.onstatechange = function(e) {
+       // Print information about the (dis)connected MIDI controller
+       console.log(e.port.name, e.port.manufacturer, e.port.state);
+     };
+  });
+  
+  document.onkeydown = function (e) {
+  console.log(e.keyCode)
+	switch(e.keyCode) {
+		case 81: 
+			playNote('36');
+			return 
+		case 87: 
+			playNote('38');
+			return
+		case 80: 
+			playNote('46');
+			return
+		case 79: 
+			playNote('51');
+			return
+	}
+  };
+  
+  function onMidiMessage(message) {
+	console.log(message.data);
+	var midiMessage = parseMidiMessage(message)
+	if (midiMessage.velocity > 0)
+		switch(midiMessage.note) {
+			case 60: onPedal(1); break;
+			case 62: onPedal(2); break;
+			case 64: onPedal(3); break;
+			case 65: onPedal(4); break;
+			case 67: onPedal(5); break;
+			default: 
+				break;
+		}
+  }
+  
+  function onPedal(pedal) {
+	switch(pedal) {
+		case 1: 
+		case 2: 
+		case 3: 
+		case 4: 
+		case 5: 
+			playPattern(pedal); break;
+		default: 
+			break;
+	}	
+  }
+  
+  function playPattern(id) {
+    playNote(52);
+	var portID = document.getElementById('outs').value
+	var output = window.ma.outputs.get(portID);
+	
+	// output.send([message, note, velocity]);  
+  
+	var patternB64 = 'data:audio/midi;base64,TVRoZAAAAAYAAQACAPBNVHJrAAAAKQD/AxIxNDAgSFQgMTEgUVRSIFJpZGUA/1EDBoobAP9YBAQCGAgA/y8ATVRyawAAATAA/wMSMTQwIEhUIDExIFFUUiBSaWRlAJkzegCZJHAemTMAAJkkAIFVmTNzHpkzAFuZJG8emSQAVZkmdwaZM3cYmSYABpkzAIFTmTNpHpkzAFiZJHEemSQAWZkkcASZM3QamSQABJkzAIFNmTNzHpkzAFaZJGsemSQAYZkmbwOZM3sbmSYAA5kzAFWZJG8emSQAX5kzdx6ZMwBXmSRuHpkkAFKZJG4ImTN7FpkkAAiZMwCBUJkzdB6ZMwBVmSR0HpkkAFuZJnMImTN3FpkmAAiZMwCBT5kzbR6ZMwBZmSRuHpkkAFqZJHIDmTN8G5kkAAOZMwCBTpkzax6ZMwBcmSRtHpkkAFmZJnMCmTN4HJkmAAKZMwBRmSRwHpkkAFuZM3YemTMAWpkkax6ZJAAA/y8A';
+  }
+  
+  function sendNote() {
+	  var note = parseInt(document.getElementById('note').value)
+	  playNote(note)
+  }
+  
+  function playNote(note) {
+	  var portID = document.getElementById('outs').value
+	  var noteOnMessage  = [0x90, note, 127]; 
+	  var noteOffMessage = [0x80, note, 127]; 
+	  var output = window.ma.outputs.get(portID);
+	  output.send(noteOnMessage);  
+	  setTimeout(() => output.send(noteOffMessage), 500 )
+  }
+  
+/**
+ * Parse basic information out of a MIDI message.
+ */
+function parseMidiMessage(message) {
+  return {
+    command: message.data[0] >> 4,
+    channel: message.data[0] & 0xf,
+    note: message.data[1],
+    velocity: message.data[2] / 127
+  }
+}
+
+</script>
+</head>
+
+<body>
+	<select id='outs'>
+	</select>
+	Note: <input type="number" min="0" max="127" id="note" value="60" />
+	<button onclick='sendNote()'>Send</button>
+	
+	
+</body>
+
+</html>
