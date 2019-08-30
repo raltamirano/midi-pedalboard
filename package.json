@@ -1,0 +1,30 @@
+{
+  "name": "midi-pedalboard",
+  "version": "1.0.0",
+  "description": "MIDI Pedalboard companion app",
+  "main": "src/index.html",
+  "dependencies": {
+    "midi-player-js": "^2.0.5"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/raltamirano/midi-pedalboard.git"
+  },
+  "keywords": [
+    "midi",
+    "pedalboard",
+    "songwriting",
+    "composing",
+    "music"
+  ],
+  "author": "rodrigo.altamirano@gmail.com",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/raltamirano/midi-pedalboard/issues"
+  },
+  "homepage": "https://github.com/raltamirano/midi-pedalboard#readme"
+}
