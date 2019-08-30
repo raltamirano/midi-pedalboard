@@ -1,16 +1,14 @@
 <!doctype html>
 <html>
 <head>
-	<meta charset="UTF-8">
 	<title>MIDI Pedalboard</title>
-	
-	<style>
-		.bigButton {
-			width: 8em; 
-			height: 4em;
-		}
-	</style>
-	
+
+	<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+		
 	<script src="../node_modules/midi-player-js/browser/midiplayer.min.js" type="text/javascript"></script>
 	<script type="text/javascript">
 		navigator.requestMIDIAccess().then(function(access) {
@@ -135,30 +133,31 @@
 </head>
 
 <body>
-	<div>
-		<h1>MIDI Pedalboard</h1>
-	</div>
+	<div class="container m-2 p-2 w-100">
+		<div class="row">
+			<h1>MIDI Pedalboard</h1>
+		</div>
 
-	<div>
-		<label>Output port:</label>
-		<select id='outs'></select>
+		<div class="row">
+			<label>Output port:</label>
+			<select id='outs'></select>
 
-		<label>Tempo:</label>
-		<input type="number" id="tempo" min="10" max="10000" value="120" />
-	</div>
+			<label>Tempo:</label>
+			<input type="number" id="tempo" min="10" max="10000" value="120" />
+		</div>
 
-	<div style="width: 50%; margin-top: 4em; margin-left: auto; margin-right: auto;">
-		<table>
-			<tr>
-				<td><button onclick="playPattern(1)" class="bigButton">Pedal 1</button></td>
-				<td><button onclick="playPattern(2)" class="bigButton">Pedal 2</button></td>
-				<td><button onclick="playPattern(3)" class="bigButton">Pedal 3</button></td>
-				<td><button onclick="playPattern(4)" class="bigButton">Pedal 4</button></td>
-				<td><button onclick="playPattern(5)" class="bigButton">Pedal 5</button></td>
-			</tr>
-		</table>
+		<div class="row fixed-bottom justify-content-center pb-2">
+			<table>
+				<tr>
+					<td><button onclick="playPattern(1)" class="btn btn-primary btn-lg">Pedal 1</button></td>
+					<td><button onclick="playPattern(2)" class="btn btn-primary btn-lg">Pedal 2</button></td>
+					<td><button onclick="playPattern(3)" class="btn btn-primary btn-lg">Pedal 3</button></td>
+					<td><button onclick="playPattern(4)" class="btn btn-primary btn-lg">Pedal 4</button></td>
+					<td><button onclick="playPattern(5)" class="btn btn-primary btn-lg">Pedal 5</button></td>
+				</tr>
+			</table>
+		</div>
 	</div>
-	
 </body>
 
 </html>
