@@ -84,7 +84,6 @@
 		}
 		  
 		function playPattern(id) {
-			//playNote(52);
 			var portID = document.getElementById('outs').value
 			var output = window.ma.outputs.get(portID);
 			
@@ -92,10 +91,12 @@
 			var player = new MidiPlayer.Player();
 			
 			player.on('playing', function(currentTick) {
-				console.log('Playing at tick: ' + currentTick);
+				console.log('Playing at tick: ' + JSON.stringify(currentTick));
 			});
 			
 			player.on('midiEvent', function(event) {
+				console.log('MIDI event: ' + JSON.stringify(event));
+
 				var eventType = null;
 			
 				if (event.name == 'Note on') 
@@ -109,6 +110,7 @@
 			
 			var patternB64 = 'data:audio/midi;base64,TVRoZAAAAAYAAQACAeBNVHJrAAAAWAD/AihDb3B5cmlnaHQgKGMpIDIwMTIgUHJvc29uaWMgU3R1ZGlvcywgTExDAP9YBAQCGAgA/wMcQlJuUiA0LTQgTm1sU3RyIFQwMjMgRnVsbEtpdAD/LwBNVHJrAAADqAD/AyBCUm5SXzQtNF9ObWxTdHJfVDAyM19GdWxsS2l0XzAwNACZJFYBmSpgAJkmWByZJAAAmSYAAJkqAFyZJi4cmSYAXZkmPwCZKkkbmSoAAJkmAFiZJEUCmSYyHpkmAACZJABdmSZWAJkqZhuZJgAAmSoAWZkmLx+ZJgBYmSY/AZkkVQKZKkgdmSQAAJkqAACZJgBcmSYuHJkmAFmZKmMFmSZXAJkkWBqZJAAAmSoAAJkmAFmZJi8fmSYAV5kuSQOZJj4emS4AAJkmAF2ZJi8bmSYAWZkqYgGZJlkemSYAAJkqAFmZJjEfmSYAWZkpWAOZKkgCmSY9GpkqAACZKQAAmSYAWZkmKx+ZJgBamSZXA5kqZgCZJFsbmSQAAJkmAACZKgBXmSYxIZkmAFqZKksCmSlaAJkmPxyZKQAAmSoAAJkmAFmZJEgBmSYvHpkkAACZJgBYmSpjAZkmVwWZKVcamSYAAJkqAACZKQBYmSYvIJkmAFmZKkoAmSZDBZkkVhqZKgAAmSQAAJkmAF6ZJiwamSYAV5kmXAKZJFYBmSpgHpkmAACZJAAAmSoAXZkmLBuZJgBZmSpJA5kmQRyZKgAAmSYAXpkmKxqZJgBcmSpiAJkmWByZJgAAmSoAXZkmLRuZJgBYmSZDBJkuSRyZJgAAmS4AXpkmLxqZJgBXmSpgA5kmWwOZJFkbmSoAAJkkAACZJgBXmSYxIZkmAFyZJkABmSpNG5kqAACZJgBXmSRCBpkmMhuZJAAAmSYAWZkmWQGZKmYemSoAAJkmAFyZJEMBmSYuG5kkAACZJgBbmSpJAJkmPgKZJFQbmSQAAJkqAACZJgBcmSYvHJkmAFyZJlYBmSRUAZkqYxqZKgAAmSYAAJkkAFyZJiscmSYAWZkqTQKZJkAdmSoAAJkmAFeZJjIhmSYAWJkqYASZJlocmSoAAJkmAF6ZJi4amSYAV5kpUwGZKk4EmSY+HJkqAACZJgAAmSkAXZkmLBuZJgBcmSRaAZkmWBuZJAAAmSYAWJkmKyCZJgBcmSlaApkmRBqZKQAAmSYAV5kkRwOZJisemSYAAJkkAFyZKVgBmSZWG5kpAACZJgBYmSRHA5kmLB2ZJgAAmSQAXZkmPQGZJFYamSYAAJkkAFqZJjAemSYAW5kmWQKZJFsbmSQAAJkmAFuZJjAdmSYAW5kmQh2ZJgBcmSYrHJkmAFyZJl0cmSYAW5kmLB2ZJgBXmSY9IZkmAFqZJi4emSYAW/8vAA==';
 			player.loadDataUri(patternB64);
+			player.setTempo(parseInt(document.getElementById('tempo').value));
 			player.play();
 		}
 		  
@@ -118,7 +120,7 @@
 			var noteOffMessage = [0x80, note, 127]; 
 			var output = window.ma.outputs.get(portID);
 			output.send(noteOnMessage);  
-			setTimeout(() => output.send(noteOffMessage), 500 )
+			setTimeout(() => output.send(noteOffMessage), 500)
 		}
 		  
 		function parseMidiMessage(message) {
@@ -140,6 +142,9 @@
 	<div>
 		<label>Output port:</label>
 		<select id='outs'></select>
+
+		<label>Tempo:</label>
+		<input type="number" id="tempo" min="10" max="10000" value="120" />
 	</div>
 
 	<div style="width: 50%; margin-top: 4em; margin-left: auto; margin-right: auto;">
