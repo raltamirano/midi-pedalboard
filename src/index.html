@@ -6,12 +6,14 @@
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-		<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+		<link rel="stylesheet" href="../node_modules/bootstrap/dist/css/bootstrap.min.css">
 			
 		<script src="../node_modules/jquery/dist/jquery.min.js" type="text/javascript"></script>
+		<script src="../node_modules/bootstrap/dist/js/bootstrap.min.js" type="text/javascript"></script>
 		<script src="../node_modules/midi-player-js/browser/midiplayer.min.js" type="text/javascript"></script>
 		
 		<script type="text/javascript">
+			var activeMidiIn = null;
 			var song = emptySong();
 			
 			$(document).ready(function() {
@@ -24,34 +26,55 @@
 					
 			function midiSetup() {
 				navigator.requestMIDIAccess().then(function(access) {
-					 window.ma = access
-				  
-					 const inputs = access.inputs.values();
-					 const outputs = access.outputs.values();
-					 
-					 Array.from(inputs).forEach(i => {
-						i.onmidimessage = onMidiMessage
-						i.open()
-					 });
-					 
-					 Array.from(outputs).forEach(o => {
-						var sel = document.getElementById('outs');
+					window.ma = access;
+
+					const inputs = access.inputs.values();
+					const outputs = access.outputs.values();
+
+					Array.from(inputs).forEach(i => {
+						var sel = document.getElementById('midiIns');
+						var opt = document.createElement('option');
+						opt.appendChild(document.createTextNode(i.name));
+						opt.value = i.id; 
+						sel.appendChild(opt);
+					});
+
+					Array.from(outputs).forEach(o => {
+						var sel = document.getElementById('midiOuts');
 						var opt = document.createElement('option');
 						opt.appendChild(document.createTextNode(o.name));
 						opt.value = o.id; 
 						sel.appendChild(opt);	 
-					 });
+					});
 
-					 access.onstatechange = function(e) {
-					   console.log(e.port.name, e.port.manufacturer, e.port.state);
-					 };
+					access.onstatechange = function(e) {
+						console.log(e.port.name, e.port.manufacturer, e.port.state);
+					};
+					
+					switchMidiIn();
 				});
 			}	
 
 			function loadSong() {
 				$('#songTitle').val(song.title);
 				$('#songTempo').val(song.tempo);
+				$('#midiIns').change(switchMidiIn);
 			}
+			
+			function switchMidiIn() {
+				if (activeMidiIn) {
+					activeMidiIn.close();
+					activeMidiIn = null;
+				}
+				
+				var portID = $('#midiIns').val();
+				if (portID) {
+					activeMidiIn = window.ma.inputs.get(portID);
+					activeMidiIn.onmidimessage = onMidiMessage;
+					activeMidiIn.open();
+				}
+			}
+
 			
 			function onSongAttributeChange(name, value) {
 				if (name == 'title') {
@@ -75,7 +98,7 @@
 			}
 			  
 			function playPattern(id) {
-				var portID = document.getElementById('outs').value
+				var portID = $('#midiOuts').val();
 				var output = window.ma.outputs.get(portID);
 				
 			  
@@ -101,12 +124,12 @@
 				
 				var patternB64 = 'data:audio/midi;base64,TVRoZAAAAAYAAQACAeBNVHJrAAAAWAD/AihDb3B5cmlnaHQgKGMpIDIwMTIgUHJvc29uaWMgU3R1ZGlvcywgTExDAP9YBAQCGAgA/wMcQlJuUiA0LTQgTm1sU3RyIFQwMjMgRnVsbEtpdAD/LwBNVHJrAAADqAD/AyBCUm5SXzQtNF9ObWxTdHJfVDAyM19GdWxsS2l0XzAwNACZJFYBmSpgAJkmWByZJAAAmSYAAJkqAFyZJi4cmSYAXZkmPwCZKkkbmSoAAJkmAFiZJEUCmSYyHpkmAACZJABdmSZWAJkqZhuZJgAAmSoAWZkmLx+ZJgBYmSY/AZkkVQKZKkgdmSQAAJkqAACZJgBcmSYuHJkmAFmZKmMFmSZXAJkkWBqZJAAAmSoAAJkmAFmZJi8fmSYAV5kuSQOZJj4emS4AAJkmAF2ZJi8bmSYAWZkqYgGZJlkemSYAAJkqAFmZJjEfmSYAWZkpWAOZKkgCmSY9GpkqAACZKQAAmSYAWZkmKx+ZJgBamSZXA5kqZgCZJFsbmSQAAJkmAACZKgBXmSYxIZkmAFqZKksCmSlaAJkmPxyZKQAAmSoAAJkmAFmZJEgBmSYvHpkkAACZJgBYmSpjAZkmVwWZKVcamSYAAJkqAACZKQBYmSYvIJkmAFmZKkoAmSZDBZkkVhqZKgAAmSQAAJkmAF6ZJiwamSYAV5kmXAKZJFYBmSpgHpkmAACZJAAAmSoAXZkmLBuZJgBZmSpJA5kmQRyZKgAAmSYAXpkmKxqZJgBcmSpiAJkmWByZJgAAmSoAXZkmLRuZJgBYmSZDBJkuSRyZJgAAmS4AXpkmLxqZJgBXmSpgA5kmWwOZJFkbmSoAAJkkAACZJgBXmSYxIZkmAFyZJkABmSpNG5kqAACZJgBXmSRCBpkmMhuZJAAAmSYAWZkmWQGZKmYemSoAAJkmAFyZJEMBmSYuG5kkAACZJgBbmSpJAJkmPgKZJFQbmSQAAJkqAACZJgBcmSYvHJkmAFyZJlYBmSRUAZkqYxqZKgAAmSYAAJkkAFyZJiscmSYAWZkqTQKZJkAdmSoAAJkmAFeZJjIhmSYAWJkqYASZJlocmSoAAJkmAF6ZJi4amSYAV5kpUwGZKk4EmSY+HJkqAACZJgAAmSkAXZkmLBuZJgBcmSRaAZkmWBuZJAAAmSYAWJkmKyCZJgBcmSlaApkmRBqZKQAAmSYAV5kkRwOZJisemSYAAJkkAFyZKVgBmSZWG5kpAACZJgBYmSRHA5kmLB2ZJgAAmSQAXZkmPQGZJFYamSYAAJkkAFqZJjAemSYAW5kmWQKZJFsbmSQAAJkmAFuZJjAdmSYAW5kmQh2ZJgBcmSYrHJkmAFyZJl0cmSYAW5kmLB2ZJgBXmSY9IZkmAFqZJi4emSYAW/8vAA==';
 				player.loadDataUri(patternB64);
-				player.setTempo(parseInt(document.getElementById('tempo').value));
+				player.setTempo(parseInt(document.getElementById('songTempo').value));
 				player.play();
 			}
 			  
 			function playNote(note) {
-				var portID = document.getElementById('outs').value
+				var portID = $('#midiOuts').val();
 				var noteOnMessage  = [0x90, note, 127]; 
 				var noteOffMessage = [0x80, note, 127]; 
 				var output = window.ma.outputs.get(portID);
@@ -166,45 +189,122 @@
 	</head>
 
 	<body>
-		<div class="container m-1 p-1 w-100">
-			<div class="row m-1 p-1">
-				<h1>MIDI Pedalboard</h1>
+		<div class="container-fluid m-1 p-0 w-100">
+			<div class="row m-1 p-0 w-100">
+				<h3>MIDI Pedalboard</h3>
 			</div>
 
-			<div class="row m-1 p-1 w-100">
-				<h3>Song&nbsp;<input id="songTitle" type="text" 
-					onchange="onSongAttributeChange('name', this.value)" /></h3>
-			</div>
-
-			<div class="row m-1 p-1 w-100">
-				<div class="col p-0 m-0 w-25">
-					<label>Output port&nbsp;</label>
-					<select id='outs'></select>
+			<div class="row m-1 p-0 w-100">
+				<div class="col-3 m-0 p-0">
+					<label>Song&nbsp;</label>
+					<input id="songTitle" type="text" 
+						onchange="onSongAttributeChange('name', this.value)" />
 				</div>
 
-				<div class="col p-0 m-0 w-25">
+				<div class="col-3 m-0 p-0">
 					<label>Tempo&nbsp;</label>
 					<input id="songTempo" type="number" min="10" max="10000" value="120" 
-						onchange="onSongAttributeChange('tempo', this.value) />
+						onchange="onSongAttributeChange('tempo', this.value)" />
 				</div>			
 
-				<div class="col p-0 m-0 w-50">
-					<div class="float-right">
-						<button onclick="editMode()" class="btn btn-primary btn-md">Edit Mode</button>
-						<button onclick="playMode()" class="btn btn-primary btn-md">Play Mode</button>
-					</div>			
+				<div class="col-2 m-0 p-0">
+					<label>Input port&nbsp;</label>
+					<select id="midiIns"></select>
+				</div>
+
+				<div class="col-2 m-0 p-0">
+					<label>Output port&nbsp;</label>
+					<select id="midiOuts"></select>
+				</div>
+
+				<div class="col-2 m-0 p-0">
+					<button onclick="editMode()" class="btn btn-primary btn-sm">Edit Mode</button>
+					<button onclick="playMode()" class="btn btn-primary btn-sm">Play Mode</button>
 				</div>			
 			</div>
 
-			<div id="editPanel" class="row m-1 p-1">
-				<label>EDIT</label>
+			<div id="editPanel" class="row m-1 p-0">
+				<div class="container-fluid">
+					<div class="row">
+						<ul class="nav nav-tabs" role="tablist">
+						  <li class="nav-item">
+							<a class="nav-link  active" href="#editPatterns" 
+								role="tab" data-toggle="tab" aria-selected="true">Patterns</a>
+						  </li>
+						  <li class="nav-item">
+							<a class="nav-link" href="#editActions" 
+								role="tab" data-toggle="tab">Actions</a>
+						  </li>
+						</ul>
+					</div>
+					<div class="row w-100 tab-content mt-2">
+					  <div role="tabpanel" class="tab-pane active w-100" id="editPatterns">
+						<div class="container-fluid w-100">
+							<div class="row w-100">
+								<div class="col-1">
+									<label>Pattern&nbsp;</label>
+								</div>
+								<div class="col-10">
+									<select id="editingPattern" class="w-100">
+									</select>
+								</div>
+								<div class="col-1">
+									<button id="createPattern" onclick="createPattern()"
+										class="btn btn-primary btn-sm">
+										<label>+</label>
+									</button>
+									<button id="deletePattern" onclick="deletePattern()"
+										class="btn btn-primary btn-sm">
+										<label>-</label>
+									</button>
+								</div>
+							</div>
+							<div class="row w-100">
+								<div class="col-3">
+									<label>Name&nbsp;&nbsp;</label>
+									<input id="editPatternName" type="text" />
+								</div>
+								<div class="col-3">
+									<label>Tempo&nbsp;</label>
+									<input id="editPatternTempo" type="number" min="0" max="10000" value="0" />
+								</div>
+								<div class="col-3">
+									<label>Mains mode&nbsp;</label>
+									<select id="editPatternMainsMode">
+										<option value="sequence" selected="selected">Sequence</option>
+										<option value="random">Random</option>
+									</select>
+								</div>
+								<div class="col-3">
+									<label>Fills mode&nbsp;</label>
+									<select id="editPatternFillsMode">
+										<option value="sequence" selected="selected">Sequence</option>
+										<option value="random">Random</option>
+									</select>
+								</div>
+							</div>
+							<div class="row w-100">
+								<div class="col w-50">
+									<label>MAINS</label>
+								</div>
+								<div class="col w-50">
+									<label>FILLS</label>
+								</div>
+							</div>
+						</div>
+					  </div> <!-- editPatterns -->
+					  <div role="tabpanel" class="tab-pane fade" id="editActions">
+						<label>Actions</label>
+					  </div> <!-- editActions -->
+					</div>
+				</div>
 			</div>
 			
-			<div id="playPanel" class="row m-1 p-1">
+			<div id="playPanel" class="row m-1 p-0">
 				<label>PLAY</label>
 			</div>
 			
-			<div class="row fixed-bottom justify-content-center m-1 p-1">
+			<div class="row fixed-bottom justify-content-center m-1 p-0">
 				<div class="m-2"><button onclick="playPattern(1)" class="btn btn-primary btn-lg">Pedal 1</button></div>
 				<div class="m-2"><button onclick="playPattern(2)" class="btn btn-primary btn-lg">Pedal 2</button></div>
 				<div class="m-2"><button onclick="playPattern(3)" class="btn btn-primary btn-lg">Pedal 3</button></div>
