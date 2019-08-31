@@ -165,6 +165,15 @@
 				};
 			}
 			
+			function createPatternGroove() {
+				var editingPatternIndex = $("#editingPattern").prop('selectedIndex');
+				if (editingPatternIndex < 0)
+					return;
+				
+				alert('add groove to pattern index: ' + editingPatternIndex);
+			}
+			
+			
 			function enableTestKeys() {
 				$(document).keydown(function(e) { 
 					console.log(e.keyCode);
@@ -241,21 +250,23 @@
 					  <div role="tabpanel" class="tab-pane active w-100" id="editPatterns">
 						<div class="container-fluid w-100">
 							<div class="row w-100">
-								<div class="col-1">
+								<div class="col-1 p-0 m-0">
 									<label>Pattern&nbsp;</label>
 								</div>
-								<div class="col-10">
+								<div class="col-9 p-0 m-0">
 									<select id="editingPattern" class="w-100">
 									</select>
 								</div>
-								<div class="col-1">
+								<div class="col-1 p-0 m-0">
 									<button id="createPattern" onclick="createPattern()"
-										class="btn btn-primary btn-sm">
-										<label>+</label>
+										class="btn btn-primary btn-sm w-100 h-75">
+										<label>Add</label>
 									</button>
+								</div>
+								<div class="col-1 p-0 m-0">
 									<button id="deletePattern" onclick="deletePattern()"
-										class="btn btn-primary btn-sm">
-										<label>-</label>
+										class="btn btn-primary btn-sm w-100 h-75">
+										<label>Remove</label>
 									</button>
 								</div>
 							</div>
@@ -265,12 +276,13 @@
 									<input id="editPatternName" type="text" />
 								</div>
 								<div class="col-3">
-									<label>Tempo&nbsp;</label>
-									<input id="editPatternTempo" type="number" min="0" max="10000" value="0" />
+									<label title="(0 = same as song's tempo)">Tempo&nbsp;</label>
+									<input id="editPatternTempo" type="number" min="0" max="10000" value="0"
+										title="(0 = same as song's tempo)" />
 								</div>
 								<div class="col-3">
-									<label>Mains mode&nbsp;</label>
-									<select id="editPatternMainsMode">
+									<label>Grooves mode&nbsp;</label>
+									<select id="editPatternGroovesMode">
 										<option value="sequence" selected="selected">Sequence</option>
 										<option value="random">Random</option>
 									</select>
@@ -285,10 +297,41 @@
 							</div>
 							<div class="row w-100">
 								<div class="col w-50">
-									<label>MAINS</label>
+									<div class="row">
+										<label>Grooves</label>
+									</div>
+									<div class="row">
+										<div class="col-10">
+											<select id="editPatternGrooves" size="10" class="w-100">
+											</select>
+										</div>
+										<div class="col-2">
+											<div class="row">
+												<button onclick="createPatternGroove()" class="btn btn-primary btn-sm w-100">Add</button>
+											</div>
+											<div class="row">
+												<button onclick="deletePatternGroove()" class="btn btn-primary btn-sm w-100">Remove</button>
+											</div>
+											<div class="row">
+												<button onclick="movePatternGrooveUp()" class="btn btn-primary btn-sm w-100">Move up</button>
+											</div>
+											<div class="row">
+												<button onclick="movePatternGrooveDown()" class="btn btn-primary btn-sm w-100">Move down</button>
+											</div>
+											<div class="row">
+												<button onclick="playPatternGroove()" class="btn btn-primary btn-sm w-100">Play</button>
+											</div>
+											<div class="row">
+												<button onclick="playPatternGrooveWithFills()" class="btn btn-primary btn-sm w-100">Play with fills</button>
+											</div>
+											<div class="row">
+												<button onclick="stopPatternPlaying()" class="btn btn-primary btn-sm w-100">Stop</button>
+											</div>
+										</div>
+									</div>
 								</div>
 								<div class="col w-50">
-									<label>FILLS</label>
+									<label>Fills</label>
 								</div>
 							</div>
 						</div>
@@ -304,7 +347,7 @@
 				<label>PLAY</label>
 			</div>
 			
-			<div class="row fixed-bottom justify-content-center m-1 p-0">
+			<div class="row fixed-bottom justify-content-center mb-1 p-0">
 				<div class="m-2"><button onclick="playPattern(1)" class="btn btn-primary btn-lg">Pedal 1</button></div>
 				<div class="m-2"><button onclick="playPattern(2)" class="btn btn-primary btn-lg">Pedal 2</button></div>
 				<div class="m-2"><button onclick="playPattern(3)" class="btn btn-primary btn-lg">Pedal 3</button></div>
