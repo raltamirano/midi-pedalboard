@@ -16,9 +16,10 @@
 	</head>
 
 	<body>
+		<input id="openFile" type="file" style="display:none" />
 		<div class="container-fluid m-1 p-0 w-100">
 			<div class="row m-1 p-0 w-100">
-				<h3>MIDI Pedalboard</h3>
+				<h3 ondblclick="loadSampleSong()">MIDI Pedalboard</h3>
 			</div>
 
 			<div class="row m-1 p-0 w-100">
@@ -72,7 +73,8 @@
 									<label>Pattern&nbsp;</label>
 								</div>
 								<div class="col-9 p-0 m-0">
-									<select id="editingPattern" class="w-100">
+									<select id="editingPattern" class="w-100"
+										onchange="onSongPatternChange()">
 									</select>
 								</div>
 								<div class="col-1 p-0 m-0">
@@ -143,13 +145,44 @@
 												<button onclick="playPatternGrooveWithFills()" class="btn btn-primary btn-sm w-100">Play with fills</button>
 											</div>
 											<div class="row">
-												<button onclick="stopPatternPlaying()" class="btn btn-primary btn-sm w-100">Stop</button>
+												<button onclick="stopGroovePlaying()" class="btn btn-primary btn-sm w-100">Stop</button>
 											</div>
 										</div>
 									</div>
 								</div>
 								<div class="col w-50">
-									<label>Fills</label>
+									<div class="row">
+										<label>Fills</label>
+									</div>
+									<div class="row">
+										<div class="col-10">
+											<select id="editPatternFills" size="10" class="w-100">
+											</select>
+										</div>
+										<div class="col-2">
+											<div class="row">
+												<button onclick="createPatternFill()" class="btn btn-primary btn-sm w-100">Add</button>
+											</div>
+											<div class="row">
+												<button onclick="deletePatternFill()" class="btn btn-primary btn-sm w-100">Remove</button>
+											</div>
+											<div class="row">
+												<button onclick="movePatternFillUp()" class="btn btn-primary btn-sm w-100">Move up</button>
+											</div>
+											<div class="row">
+												<button onclick="movePatternFillDown()" class="btn btn-primary btn-sm w-100">Move down</button>
+											</div>
+											<div class="row">
+												<button onclick="playPatternFill()" class="btn btn-primary btn-sm w-100">Play</button>
+											</div>
+											<div class="row">
+												<button onclick="playPatternFillLooped()" class="btn btn-primary btn-sm w-100">Play (looped)</button>
+											</div>
+											<div class="row">
+												<button onclick="stopFillPlaying()" class="btn btn-primary btn-sm w-100">Stop</button>
+											</div>
+										</div>
+									</div>
 								</div>
 							</div>
 						</div>

@@ -4,9 +4,25 @@ class Pattern {
 		this.tempo = 0;
 		this.groovesMode = 'sequence';
 		this.fillsMode = 'sequence';
-		this.grooves = {};
-		this.fills = {};
+		this.grooves = [];
+		this.fills = [];
 	};	
+	
+	createGroove(type, name, data) {
+		this.grooves.push({
+			"type": type,
+			"name": name,
+			"data": data
+		});
+	}
+
+	createFill(type, name, data) {
+		this.fills.push({
+			"type": type,
+			"name": name,
+			"data": data
+		});
+	}
 }
 
 class Song {
@@ -74,14 +90,58 @@ function midiSetup() {
 	});
 }	
 
+
 function loadSong() {
+	console.log(JSON.stringify(song, null, 2));
+	
 	$('#songTitle').val(song.title);
 	$('#songTempo').val(song.tempo);
 
 	var patterns = $('#editingPattern');
+	var patternGrooves = $('#editPatternGrooves');
+	var patternFills = $('#editPatternFills');
+	
+	var savedPatternName = $("#editingPattern").val();
+	
 	patterns.empty();
-	for (patternName in song.patterns)
-		patterns.append($("<option />").val(patternName).text(patternName));
+	patternGrooves.empty();
+	patternFills.empty();
+	
+	for (patternName in song.patterns) {
+		var pattern = song.patterns[patternName];
+		patterns.append($("<option />").val(pattern.name).text(pattern.name));
+	}
+	
+	// TODO: Load actions
+	
+	if (savedPatternName && savedPatternName in song.patterns)
+		patterns.val(savedPatternName);
+	
+	onSongPatternChange();
+}
+
+function onSongPatternChange() {
+	var patternGrooves = $('#editPatternGrooves');
+	var patternFills = $('#editPatternFills');
+	
+	patternGrooves.empty();
+	patternFills.empty();
+	
+	var editingPatternName = $("#editingPattern").val();
+	if (!editingPatternName)
+		return;
+
+	var pattern = song.patterns[editingPatternName];
+
+	for(var i=0; i<pattern.grooves.length; i++) {
+		var groove = pattern.grooves[i];
+		patternGrooves.append($("<option />").val(i).text(groove.name));		
+	}
+
+	for(var i=0; i<pattern.fills.length; i++) {
+		var fill = pattern.fills[i];
+		patternFills.append($("<option />").val(i).text(fill.name));		
+	}
 }
 
 function switchMidiIn() {
@@ -120,15 +180,18 @@ function onPedal(pedal) {
 }
   
 function playPattern(id) {
+	var patternIndex = id - 1;
+	var patterns = Object.keys(song.patterns);
+	if (!patterns[patternIndex])
+		return;	
+	
+	var pattern = song.patterns[patterns[patternIndex]];
+	if (pattern.grooves.length == 0)
+		return;
+		
 	var portID = $('#midiOuts').val();
 	var output = window.ma.outputs.get(portID);
-	
-  
 	var player = new MidiPlayer.Player();
-	
-	player.on('playing', function(currentTick) {
-		console.log('Playing at tick: ' + JSON.stringify(currentTick));
-	});
 	
 	player.on('midiEvent', function(event) {
 		console.log('MIDI event: ' + JSON.stringify(event));
@@ -144,8 +207,7 @@ function playPattern(id) {
 			output.send([eventType, event.noteNumber, event.velocity]);
 	});
 	
-	var patternB64 = 'data:audio/midi;base64,TVRoZAAAAAYAAQACAeBNVHJrAAAAWAD/AihDb3B5cmlnaHQgKGMpIDIwMTIgUHJvc29uaWMgU3R1ZGlvcywgTExDAP9YBAQCGAgA/wMcQlJuUiA0LTQgTm1sU3RyIFQwMjMgRnVsbEtpdAD/LwBNVHJrAAADqAD/AyBCUm5SXzQtNF9ObWxTdHJfVDAyM19GdWxsS2l0XzAwNACZJFYBmSpgAJkmWByZJAAAmSYAAJkqAFyZJi4cmSYAXZkmPwCZKkkbmSoAAJkmAFiZJEUCmSYyHpkmAACZJABdmSZWAJkqZhuZJgAAmSoAWZkmLx+ZJgBYmSY/AZkkVQKZKkgdmSQAAJkqAACZJgBcmSYuHJkmAFmZKmMFmSZXAJkkWBqZJAAAmSoAAJkmAFmZJi8fmSYAV5kuSQOZJj4emS4AAJkmAF2ZJi8bmSYAWZkqYgGZJlkemSYAAJkqAFmZJjEfmSYAWZkpWAOZKkgCmSY9GpkqAACZKQAAmSYAWZkmKx+ZJgBamSZXA5kqZgCZJFsbmSQAAJkmAACZKgBXmSYxIZkmAFqZKksCmSlaAJkmPxyZKQAAmSoAAJkmAFmZJEgBmSYvHpkkAACZJgBYmSpjAZkmVwWZKVcamSYAAJkqAACZKQBYmSYvIJkmAFmZKkoAmSZDBZkkVhqZKgAAmSQAAJkmAF6ZJiwamSYAV5kmXAKZJFYBmSpgHpkmAACZJAAAmSoAXZkmLBuZJgBZmSpJA5kmQRyZKgAAmSYAXpkmKxqZJgBcmSpiAJkmWByZJgAAmSoAXZkmLRuZJgBYmSZDBJkuSRyZJgAAmS4AXpkmLxqZJgBXmSpgA5kmWwOZJFkbmSoAAJkkAACZJgBXmSYxIZkmAFyZJkABmSpNG5kqAACZJgBXmSRCBpkmMhuZJAAAmSYAWZkmWQGZKmYemSoAAJkmAFyZJEMBmSYuG5kkAACZJgBbmSpJAJkmPgKZJFQbmSQAAJkqAACZJgBcmSYvHJkmAFyZJlYBmSRUAZkqYxqZKgAAmSYAAJkkAFyZJiscmSYAWZkqTQKZJkAdmSoAAJkmAFeZJjIhmSYAWJkqYASZJlocmSoAAJkmAF6ZJi4amSYAV5kpUwGZKk4EmSY+HJkqAACZJgAAmSkAXZkmLBuZJgBcmSRaAZkmWBuZJAAAmSYAWJkmKyCZJgBcmSlaApkmRBqZKQAAmSYAV5kkRwOZJisemSYAAJkkAFyZKVgBmSZWG5kpAACZJgBYmSRHA5kmLB2ZJgAAmSQAXZkmPQGZJFYamSYAAJkkAFqZJjAemSYAW5kmWQKZJFsbmSQAAJkmAFuZJjAdmSYAW5kmQh2ZJgBcmSYrHJkmAFyZJl0cmSYAW5kmLB2ZJgBXmSY9IZkmAFqZJi4emSYAW/8vAA==';
-	player.loadDataUri(patternB64);
+	player.loadDataUri(pattern.grooves[0].data);
 	player.setTempo(parseInt(document.getElementById('songTempo').value));
 	player.play();
 }
@@ -168,6 +230,13 @@ function parseMidiMessage(message) {
 	}
 }
 
+function loadSampleSong() {
+	$.getJSON("etc/samples/song1.json", function(data) {
+		song = data;
+		loadSong();
+	});
+}
+
 function editMode() {
 	$('#editPanel').show();
 	$('#playPanel').hide();
@@ -188,7 +257,52 @@ function createPatternGroove() {
 	if (!editingPatternName)
 		return;
 	
-	alert('add groove to pattern: ' + editingPatternName);
+	var inputFile = $('#openFile');
+	var fn = function(e) {
+		inputFile.off('change');
+
+		var file = inputFile[0].files[0];
+
+		if (file) {
+			var reader = new FileReader();
+			reader.onloadend = function () {
+				song.patterns[editingPatternName].createGroove('embedded', file.name, reader.result);
+				loadSong();
+			};
+
+			reader.readAsDataURL(file);	
+		}
+	};
+	
+	inputFile.change(fn);
+	inputFile.click();
+}
+
+
+function createPatternFill() {
+	var editingPatternName = $("#editingPattern").val();
+	if (!editingPatternName)
+		return;
+	
+	var inputFile = $('#openFile');
+	var fn = function(e) {
+		inputFile.off('change');
+
+		var file = inputFile[0].files[0];
+
+		if (file) {
+			var reader = new FileReader();
+			reader.onloadend = function () {
+				song.patterns[editingPatternName].createFill('embedded', file.name, reader.result);
+				loadSong();
+			};
+
+			reader.readAsDataURL(file);	
+		}
+	};
+	
+	inputFile.change(fn);
+	inputFile.click();
 }
 
 
