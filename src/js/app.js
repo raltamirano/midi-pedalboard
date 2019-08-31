@@ -54,11 +54,10 @@ var song = new Song();
 $(document).ready(function() {
 	editMode();
 	midiSetup();
-	enableTestKeys();
-	
+	enableTestKeys();	
 	loadSong();
 });
-		
+
 function midiSetup() {
 	navigator.requestMIDIAccess().then(function(access) {
 		window.ma = access;
