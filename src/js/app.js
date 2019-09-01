@@ -46,10 +46,115 @@ class Song {
 	}
 }
 
+class Orchestrator {
+	constructor(song) {
+		this.song = song;
+		this.playingPattern = null;
+		this.nextPattern = null;
+		
+		this.processMIDIEvent = this.processMIDIEvent.bind(this);
+		this.onEndOfPattern = this.onEndOfPattern.bind(this);
+		this.onEndOfPattern2 = this.onEndOfPattern2.bind(this);
+		
+		this.grooveParser = new MidiPlayer.Player(this.processMIDIEvent);
+		this.fillParser = new MidiPlayer.Player(this.processMIDIEvent);
+		
+		this.grooveParser.on('endOfFile', this.onEndOfPattern);
+		this.fillParser.on('endOfFile', this.onEndOfPattern);	
+	}	
+	
+	isPlaying() {
+		return this.playingPattern != null;
+	}
+	
+	playNext(patternName) {
+		var pattern = this.song.patterns[patternName];
+		if (!pattern || pattern.grooves.length == 0)
+			return;			
+		
+		if(!this.playingPattern) {
+			// No pattern is currently playing, so let's play the requested one.
+			this.playingPattern = pattern.name;
+			this.loadPattern(this.playingPattern);
+			this.playMIDI(false);
+		} else {
+			if (this.playingPattern.name == pattern.name) {
+				// User requested to play the same pattern as the one currently playing.				
+				// Clear next pattern, if any.
+				this.nextPattern = null;
+			} else {
+				this.nextPattern = pattern.name;
+				// TODO: mark need for fill!
+			}
+		}
+	}
+		
+	prepareMIDI(midiData, tempo, isFill) {
+		var parser = isFill ? this.grooveParser : this.fillParser;
+		parser.loadDataUri(midiData);
+		parser.resetTracks();
+		parser.setTempo(tempo);
+	}
+	
+	playMIDI(isFill) {
+		console.log('Play MIDI. Pattern => ' + this.playingPattern + ' // isFill => ' + isFill);
+
+		var parser = isFill ? this.grooveParser : this.fillParser;
+		parser.resetTracks();
+		parser.play();
+	}
+	
+	processMIDIEvent(event) {
+		console.log('Playing => ' + JSON.stringify(event));
+
+		if (!activeMidiOut) {
+			console.log('No active MIDI out port!');
+			return;
+		}
+		
+		var eventType = null;
+		if (event.name == 'Note on') 
+			eventType = 0x90;
+		else if (event.name == 'Note off') 
+			eventType = 0x80;
+		
+		if (eventType)
+			activeMidiOut.send([eventType, event.noteNumber, event.velocity]);
+	}
+	
+	onEndOfPattern() {		
+		console.log('Finished pattern => ' + this.playingPattern);
+		setTimeout(this.onEndOfPattern2, 10);
+	}
+	
+	onEndOfPattern2() {
+		if (this.nextPattern) {
+			console.log('To next pattern => ' + this.nextPattern);
+			
+			this.playingPattern = this.nextPattern;
+			this.nextPattern = null;
+			this.loadPattern(this.playingPattern);
+		} else if (this.playingPattern) {
+			console.log('Repeat pattern => ' + this.playingPattern);
+		}
+		
+		if (this.playingPattern)
+			this.playMIDI(false);		
+	}
+	
+	loadPattern(patternName) {
+		var pattern = this.song.patterns[patternName];
+		var midiData = pattern.grooves[0].data; // TODO: Honor sequence/random config
+		var tempo = pattern && pattern.tempo > 0 ? pattern.tempo : this.song.tempo;
+		this.prepareMIDI(midiData, tempo, false);		
+	}
+}
 
 
 var activeMidiIn = null;
+var activeMidiOut = null;
 var song = new Song();
+var orchestrator = new Orchestrator(song);
 
 $(document).ready(function() {
 	editMode();
@@ -86,11 +191,13 @@ function midiSetup() {
 		};
 		
 		switchMidiIn();
+		switchMidiOut();
 	});
 }	
 
 
 function loadSong() {
+	orchestrator = new Orchestrator(song);
 	console.log(JSON.stringify(song, null, 2));
 	
 	$('#songTitle').val(song.title);
@@ -157,6 +264,16 @@ function switchMidiIn() {
 	}
 }
 
+function switchMidiOut() {
+	if (activeMidiOut) {
+		activeMidiOut = null;
+	}
+	
+	var portID = $('#midiOuts').val();
+	if (portID)
+		activeMidiOut = window.ma.outputs.get(portID);
+}
+
 function onSongAttributeChange(name, value) {
 	if (name == 'title') {
 		if (song.title != value)
@@ -175,49 +292,15 @@ function onMidiMessage(message) {
 }
   
 function onPedal(pedal) {
-	playPattern(pedal);
-}
-  
-function playPattern(id) {
-	var patternIndex = id - 1;
-	var patterns = Object.keys(song.patterns);
-	if (!patterns[patternIndex])
-		return;	
-	
-	var pattern = song.patterns[patterns[patternIndex]];
-	if (pattern.grooves.length == 0)
-		return;
-		
-	var portID = $('#midiOuts').val();
-	var output = window.ma.outputs.get(portID);
-	var player = new MidiPlayer.Player();
-	
-	player.on('midiEvent', function(event) {
-		console.log('MIDI event: ' + JSON.stringify(event));
-
-		var eventType = null;
-	
-		if (event.name == 'Note on') 
-			eventType = 0x90;
-		else if (event.name == 'Note off') 
-			eventType = 0x80;
-		
-		if (eventType)
-			output.send([eventType, event.noteNumber, event.velocity]);
-	});
-	
-	player.loadDataUri(pattern.grooves[0].data);
-	player.setTempo(parseInt(document.getElementById('songTempo').value));
-	player.play();
+	var patternName = Object.keys(song.patterns)[pedal - 1];
+	orchestrator.playNext(patternName);
 }
   
 function playNote(note) {
-	var portID = $('#midiOuts').val();
 	var noteOnMessage  = [0x90, note, 127]; 
 	var noteOffMessage = [0x80, note, 127]; 
-	var output = window.ma.outputs.get(portID);
-	output.send(noteOnMessage);  
-	setTimeout(() => output.send(noteOffMessage), 500)
+	activeMidiOut.send(noteOnMessage);  
+	setTimeout(() => activeMidiOut.send(noteOffMessage), 500)
 }
   
 function parseMidiMessage(message) {
@@ -325,6 +408,3 @@ function enableTestKeys() {
 		}	
 	});
 }
-
-
-		
