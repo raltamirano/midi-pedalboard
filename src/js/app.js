@@ -24,7 +24,6 @@ class Pattern {
 		this.grooves.push({
 			"type": type,
 			"name": name,
-			"data": data,
 			"track": this.toTrack(data)
 		});
 	}
@@ -33,7 +32,6 @@ class Pattern {
 		this.fills.push({
 			"type": type,
 			"name": name,
-			"data": data,
 			"track": this.toTrack(data)
 		});
 	}	
