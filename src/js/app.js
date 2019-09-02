@@ -8,11 +8,24 @@ class Pattern {
 		this.fills = [];
 	};	
 	
+	toTrack(data) {		
+		var midi = MidiParser.parse(data);
+		var midiTrack = midi.formatType == 0 ? midi.track[0] : midi.track[1];
+
+		var track = {
+			"ppqn": midi.timeDivision,
+			"events": JSON.parse(JSON.stringify(midiTrack.event))
+		};
+		
+		return track;
+	}
+
 	createGroove(type, name, data) {
 		this.grooves.push({
 			"type": type,
 			"name": name,
-			"data": data
+			"data": data,
+			"track": this.toTrack(data)
 		});
 	}
 
@@ -20,9 +33,10 @@ class Pattern {
 		this.fills.push({
 			"type": type,
 			"name": name,
-			"data": data
+			"data": data,
+			"track": this.toTrack(data)
 		});
-	}
+	}	
 }
 
 class Song {
@@ -52,15 +66,7 @@ class Orchestrator {
 		this.playingPattern = null;
 		this.nextPattern = null;
 		
-		this.processMIDIEvent = this.processMIDIEvent.bind(this);
 		this.onEndOfPattern = this.onEndOfPattern.bind(this);
-		this.onEndOfPattern2 = this.onEndOfPattern2.bind(this);
-		
-		this.grooveParser = new MidiPlayer.Player(this.processMIDIEvent);
-		this.fillParser = new MidiPlayer.Player(this.processMIDIEvent);
-		
-		this.grooveParser.on('endOfFile', this.onEndOfPattern);
-		this.fillParser.on('endOfFile', this.onEndOfPattern);	
 	}	
 	
 	isPlaying() {
@@ -75,10 +81,9 @@ class Orchestrator {
 		if(!this.playingPattern) {
 			// No pattern is currently playing, so let's play the requested one.
 			this.playingPattern = pattern.name;
-			this.loadPattern(this.playingPattern);
-			this.playMIDI(false);
+			this.play();
 		} else {
-			if (this.playingPattern.name == pattern.name) {
+			if (this.playingPattern == pattern.name) {
 				// User requested to play the same pattern as the one currently playing.				
 				// Clear next pattern, if any.
 				this.nextPattern = null;
@@ -88,66 +93,45 @@ class Orchestrator {
 			}
 		}
 	}
-		
-	prepareMIDI(midiData, tempo, isFill) {
-		var parser = isFill ? this.grooveParser : this.fillParser;
-		parser.loadDataUri(midiData);
-		parser.resetTracks();
-		parser.setTempo(tempo);
-	}
-	
-	playMIDI(isFill) {
-		console.log('Play MIDI. Pattern => ' + this.playingPattern + ' // isFill => ' + isFill);
-
-		var parser = isFill ? this.grooveParser : this.fillParser;
-		parser.resetTracks();
-		parser.play();
-	}
-	
-	processMIDIEvent(event) {
-		console.log('Playing => ' + JSON.stringify(event));
-
+			
+	play() {
 		if (!activeMidiOut) {
 			console.log('No active MIDI out port!');
 			return;
 		}
 		
-		var eventType = null;
-		if (event.name == 'Note on') 
-			eventType = 0x90;
-		else if (event.name == 'Note off') 
-			eventType = 0x80;
+		console.log('Play pattern => ' + this.playingPattern);
+		var pattern = this.song.patterns[this.playingPattern];
+		var groove = pattern.grooves[0]; // TODO: Honor groove selection mode (sequence/random)
+		var tempo = pattern.tempo > 0 ? pattern.tempo : parseInt($('#songTempo').val());
 		
-		if (eventType)
-			activeMidiOut.send([eventType, event.noteNumber, event.velocity]);
+		var f = 60000 / groove.track.ppqn / tempo;
+		var startTime = performance.now();
+		var time = startTime;
+		for (var i=0;i<groove.track.events.length;i++) {
+			var event = groove.track.events[i];
+			if (event.type == 8 || event.type == 9) { 
+				time += (event.deltaTime * f);
+				activeMidiOut.send([event.type == 8 ? 0x80 : 0x90, event.data[0], event.data[1]], time);
+			}			
+		}
+		this.patternsEnds = time;
+		setTimeout(this.onEndOfPattern, time - startTime);
 	}
 	
-	onEndOfPattern() {		
-		console.log('Finished pattern => ' + this.playingPattern);
-		setTimeout(this.onEndOfPattern2, 10);
-	}
-	
-	onEndOfPattern2() {
+	onEndOfPattern() {
 		if (this.nextPattern) {
 			console.log('To next pattern => ' + this.nextPattern);
 			
 			this.playingPattern = this.nextPattern;
 			this.nextPattern = null;
-			this.loadPattern(this.playingPattern);
 		} else if (this.playingPattern) {
 			console.log('Repeat pattern => ' + this.playingPattern);
 		}
 		
 		if (this.playingPattern)
-			this.playMIDI(false);		
-	}
-	
-	loadPattern(patternName) {
-		var pattern = this.song.patterns[patternName];
-		var midiData = pattern.grooves[0].data; // TODO: Honor sequence/random config
-		var tempo = pattern && pattern.tempo > 0 ? pattern.tempo : this.song.tempo;
-		this.prepareMIDI(midiData, tempo, false);		
-	}
+			this.play();		
+	}	
 }
 
 
