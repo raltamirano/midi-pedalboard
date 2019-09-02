@@ -154,11 +154,16 @@ function midiSetup() {
 		const inputs = access.inputs.values();
 		const outputs = access.outputs.values();
 
+		const lastMidiIn = window.localStorage.getItem('midiIn');
+		const lastMidiOut = window.localStorage.getItem('midiOut');
+
 		Array.from(inputs).forEach(i => {
 			var sel = document.getElementById('midiIns');
 			var opt = document.createElement('option');
 			opt.appendChild(document.createTextNode(i.name));
 			opt.value = i.id; 
+			if (i.id == lastMidiIn)
+				opt.selected = 'selected';
 			sel.appendChild(opt);
 		});
 
@@ -167,6 +172,8 @@ function midiSetup() {
 			var opt = document.createElement('option');
 			opt.appendChild(document.createTextNode(o.name));
 			opt.value = o.id; 
+			if (o.id == lastMidiOut)
+				opt.selected = 'selected';
 			sel.appendChild(opt);	 
 		});
 
@@ -245,6 +252,7 @@ function switchMidiIn() {
 		activeMidiIn = window.ma.inputs.get(portID);
 		activeMidiIn.onmidimessage = onMidiMessage;
 		activeMidiIn.open();
+		window.localStorage.setItem('midiIn', activeMidiIn.id);
 	}
 }
 
@@ -254,8 +262,10 @@ function switchMidiOut() {
 	}
 	
 	var portID = $('#midiOuts').val();
-	if (portID)
+	if (portID) {
 		activeMidiOut = window.ma.outputs.get(portID);
+		window.localStorage.setItem('midiOut', activeMidiOut.id);
+	}
 }
 
 function onSongAttributeChange(name, value) {
