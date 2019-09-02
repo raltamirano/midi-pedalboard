@@ -389,6 +389,21 @@ function enableTestKeys() {
 			case 79: 
 				playNote('51');
 				return
+			case 90:
+				onPedal(1);
+				return
+			case 88:
+				onPedal(2);
+				return
+			case 67:
+				onPedal(3);
+				return
+			case 86:
+				onPedal(4);
+				return
+			case 66:
+				onPedal(5);
+				return
 		}	
 	});
 }
