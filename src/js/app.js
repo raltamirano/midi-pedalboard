@@ -8,13 +8,25 @@ class Pattern {
 		this.fills = [];
 	};	
 	
+	getLengthTicks(events) {
+		var totalTicks = 0;
+		for (var i=0; i<events.length; i++) {
+			var event = events[i];
+			if (event.type == 8 || event.type == 9 || (event.type == 255 && event.metaType == 47)) 
+				totalTicks += event.deltaTime;
+		}
+		return totalTicks;
+	}
+	
 	toTrack(data) {		
 		var midi = MidiParser.parse(data);
 		var midiTrack = midi.formatType == 0 ? midi.track[0] : midi.track[1];
-
+		var ppqn = midi.timeDivision;
+		
 		var track = {
-			"ppqn": midi.timeDivision,
-			"events": JSON.parse(JSON.stringify(midiTrack.event))
+			"ppqn": ppqn,
+			"events": JSON.parse(JSON.stringify(midiTrack.event)),
+			"length": this.getLengthTicks(midiTrack.event)
 		};
 		
 		return track;
@@ -113,8 +125,7 @@ class Orchestrator {
 				activeMidiOut.send([event.type == 8 ? 0x80 : 0x90, event.data[0], event.data[1]], time);
 			}			
 		}
-		this.patternsEnds = time;
-		setTimeout(this.onEndOfPattern, time - startTime);
+		setTimeout(this.onEndOfPattern, groove.track.length * f);
 	}
 	
 	onEndOfPattern() {
