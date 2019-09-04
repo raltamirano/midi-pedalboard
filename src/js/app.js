@@ -73,9 +73,13 @@ class Song {
 class Orchestrator {
 	constructor(song) {
 		this.song = song;
+		this.tempo = song.tempo;
 		this.playingPattern = null;
 		this.nextPattern = null;
+		this.groovesRepeats = 0;
+		this.fillsRepeats = 0;
 		
+		this.playEvents = this.playEvents.bind(this);
 		this.onEndOfPattern = this.onEndOfPattern.bind(this);
 	}	
 	
@@ -99,47 +103,78 @@ class Orchestrator {
 				this.nextPattern = null;
 			} else {
 				this.nextPattern = pattern.name;
-				// TODO: mark need for fill!
 			}
 		}
 	}
 			
-	play() {
+	playEvents(track) {
 		if (!activeMidiOut) {
 			console.log('No active MIDI out port!');
 			return;
 		}
-		
-		console.log('Play pattern => ' + this.playingPattern);
-		var pattern = this.song.patterns[this.playingPattern];
-		var groove = pattern.grooves[0]; // TODO: Honor groove selection mode (sequence/random)
-		var tempo = pattern.tempo > 0 ? pattern.tempo : parseInt($('#songTempo').val());
-		
-		var f = 60000 / groove.track.ppqn / tempo;
+
+		var f = 60000 / track.ppqn / this.tempo;
 		var startTime = performance.now();
 		var time = startTime;
-		for (var i=0;i<groove.track.events.length;i++) {
-			var event = groove.track.events[i];
-			if (event.type == 8 || event.type == 9) { 
+		for (var i=0; i<track.events.length; i++) {
+			var event = track.events[i];
+			if (event.type == 8 || event.type == 9) {
 				time += (event.deltaTime * f);
 				activeMidiOut.send([event.type == 8 ? 0x80 : 0x90, event.data[0], event.data[1]], time);
 			}			
+		}	
+		
+		return f;
+	}
+
+	play() {
+		this.tempo = this.song.tempo;
+		this.nextFill = null;
+		
+		console.log('Play pattern => ' + this.playingPattern);
+		var pattern = this.song.patterns[this.playingPattern];
+		this.tempo = pattern.tempo > 0 ? pattern.tempo : this.song.tempo;
+		var chosenGroove = pattern.groovesMode == 'sequence' ? this.groovesRepeats % pattern.grooves.length : Math.floor(Math.random() * pattern.grooves.length);
+		var groove = pattern.grooves[chosenGroove];
+		if (pattern.fills.length > 0) {
+			var chosenFill = pattern.fillsMode == 'sequence' ? this.fillsRepeats % pattern.fills.length : Math.floor(Math.random() * pattern.fills.length);
+			this.nextFill = pattern.fills[chosenFill];
 		}
-		setTimeout(this.onEndOfPattern, groove.track.length * f);
+		
+		var f = this.playEvents(groove.track);
+		
+		this.groovesRepeats = this.groovesRepeats + 1; 
+		setTimeout(this.onEndOfPattern, this.nextFill ? (groove.track.length - this.nextFill.track.length - 1) : groove.track.length * f);
 	}
 	
 	onEndOfPattern() {
-		if (this.nextPattern) {
-			console.log('To next pattern => ' + this.nextPattern);
-			
-			this.playingPattern = this.nextPattern;
-			this.nextPattern = null;
-		} else if (this.playingPattern) {
-			console.log('Repeat pattern => ' + this.playingPattern);
+		if (!activeMidiOut) {
+			console.log('No active MIDI out port!');
+			return;
 		}
-		
-		if (this.playingPattern)
-			this.play();		
+
+		if (this.nextPattern && this.nextFill) {
+			this.fillsRepeats = this.fillsRepeats + 1; 
+			activeMidiOut.clear();
+			var f = this.playEvents(this.nextFill.track);
+			setTimeout(this.onEndOfPattern, this.nextFill.track.length * f);
+			this.nextFill = null;
+		} else {		
+			if (this.nextPattern) {
+				this.groovesRepeats = 0;
+				this.fillsRepeats = 0;
+				
+				console.log('To next pattern => ' + this.nextPattern);
+				
+				this.playingPattern = this.nextPattern;
+				this.nextPattern = null;
+			} else if (this.playingPattern) {
+				console.log('Repeat pattern => ' + this.playingPattern);
+			}
+			
+			if (this.playingPattern)
+				this.play();
+		}
 	}	
 }
 
