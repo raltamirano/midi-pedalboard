@@ -75,6 +75,8 @@ class Orchestrator {
 		this.song = song;
 		this.tempo = song.tempo;
 		this.playingPattern = null;
+		this.playingWhat = null;
+		this.currentGroove = null;
 		this.nextPattern = null;
 		this.groovesRepeats = 0;
 		this.fillsRepeats = 0;
@@ -95,7 +97,7 @@ class Orchestrator {
 		if(!this.playingPattern) {
 			// No pattern is currently playing, so let's play the requested one.
 			this.playingPattern = pattern.name;
-			this.play();
+			this.startPlayingPattern();
 		} else {
 			if (this.playingPattern == pattern.name) {
 				// User requested to play the same pattern as the one currently playing.				
@@ -107,7 +109,7 @@ class Orchestrator {
 		}
 	}
 			
-	playEvents(track) {
+	playEvents(track, startAt, justBefore) {
 		if (!activeMidiOut) {
 			console.log('No active MIDI out port!');
 			return;
@@ -116,50 +118,79 @@ class Orchestrator {
 		var f = 60000 / track.ppqn / this.tempo;
 		var startTime = performance.now();
 		var time = startTime;
+		var ticks = 0;
+		
 		for (var i=0; i<track.events.length; i++) {
 			var event = track.events[i];
 			if (event.type == 8 || event.type == 9) {
+				ticks += event.deltaTime;
+				if (ticks < startAt)
+					continue;					
+				if (ticks >= justBefore)
+					break;
+
 				time += (event.deltaTime * f);
-				activeMidiOut.send([event.type == 8 ? 0x80 : 0x90, event.data[0], event.data[1]], time);
-			}			
-		}	
+				activeMidiOut.send([event.type == 8 ? 0x80 : 0x90, event.data[0], event.data[1]], time);				
+			}
+		}
 		
 		return f;
 	}
 
-	play() {
+	startPlayingPattern() {
 		this.tempo = this.song.tempo;
+		this.currentGroove = null;
 		this.nextFill = null;
 		
 		console.log('Play pattern => ' + this.playingPattern);
 		var pattern = this.song.patterns[this.playingPattern];
 		this.tempo = pattern.tempo > 0 ? pattern.tempo : this.song.tempo;
 		var chosenGroove = pattern.groovesMode == 'sequence' ? this.groovesRepeats % pattern.grooves.length : Math.floor(Math.random() * pattern.grooves.length);
-		var groove = pattern.grooves[chosenGroove];
+		this.currentGroove = pattern.grooves[chosenGroove];
 		if (pattern.fills.length > 0) {
 			var chosenFill = pattern.fillsMode == 'sequence' ? this.fillsRepeats % pattern.fills.length : Math.floor(Math.random() * pattern.fills.length);
 			this.nextFill = pattern.fills[chosenFill];
 		}
 		
-		var f = this.playEvents(groove.track);
+		var grooveNoFillSectionLenght = this.nextFill ? (this.currentGroove.track.length - this.nextFill.track.length) : this.currentGroove.track.length;
+		var f = this.playEvents(this.currentGroove.track, 0, grooveNoFillSectionLenght);
+		this.playingWhat = 'groove';
 		
 		this.groovesRepeats = this.groovesRepeats + 1; 
-		setTimeout(this.onEndOfPattern, this.nextFill ? (groove.track.length - this.nextFill.track.length - 1) : groove.track.length * f);
+		setTimeout(this.onEndOfPattern, grooveNoFillSectionLenght * f);
 	}
 	
 	onEndOfPattern() {
+		var lastPlayedWhat = this.playingWhat;
+		this.playingWhat = null
+
 		if (!activeMidiOut) {
 			console.log('No active MIDI out port!');
 			return;
 		}
 
-		if (this.nextPattern && this.nextFill) {
-			this.fillsRepeats = this.fillsRepeats + 1; 
-			activeMidiOut.clear();
-			var f = this.playEvents(this.nextFill.track);
-			setTimeout(this.onEndOfPattern, this.nextFill.track.length * f);
-			this.nextFill = null;
-		} else {		
+		if (lastPlayedWhat == 'groove') {
+			var needToPlayFill = this.nextPattern && this.nextPattern != this.playingPattern;
+			var fillAvailable = this.nextFill ? true : false;
+
+			if (fillAvailable) {
+				var fillSectionLengthInMillis = 0;
+				if (needToPlayFill) {
+					this.fillsRepeats = this.fillsRepeats + 1; 
+					var f = this.playEvents(this.nextFill.track, 0, this.nextFill.track.length + 1);
+					this.playingWhat = 'fill';
+					fillSectionLengthInMillis = this.nextFill.track.length * f;
+				} else  {
+					var f = this.playEvents(this.currentGroove.track, 
+						this.currentGroove.track.length - this.nextFill.track.length,
+						this.currentGroove.track.length + 1);
+					this.playingWhat = 'remainder';
+					fillSectionLengthInMillis = this.nextFill.track.length * f;
+				}				
+				setTimeout(this.onEndOfPattern, fillSectionLengthInMillis);
+				this.nextFill = null;
+			} // if no fill is available, all of the current groove events have already been played.			
+		} else if (lastPlayedWhat == 'fill' || lastPlayedWhat == 'remainder') {		
 			if (this.nextPattern) {
 				this.groovesRepeats = 0;
 				this.fillsRepeats = 0;
@@ -173,7 +204,7 @@ class Orchestrator {
 			}
 			
 			if (this.playingPattern)
-				this.play();
+				this.startPlayingPattern();
 		}
 	}	
 }
