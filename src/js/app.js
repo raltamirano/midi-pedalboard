@@ -83,8 +83,36 @@ class Orchestrator {
 		
 		this.playEvents = this.playEvents.bind(this);
 		this.onAllEventsPlayed = this.onAllEventsPlayed.bind(this);
+		this.checkCallAfter = this.checkCallAfter.bind(this);
+		this.callAfter = this.callAfter.bind(this);
 	}	
+
+	checkCallAfter() {
+		var elapsed = performance.now() - window.ca_requested;
+		if (elapsed < window.ca_millis)
+			return setTimeout(this.checkCallAfter, 0);
+
+		console.log('checkCallAfter actually executed after: ' + elapsed + ' ms'); 
+		
+		var fn = window.ca_fn;
+		var opts = window.ca_opts;
+		
+		window.ca_requested = null;
+		window.ca_fn = null;
+		window.ca_millis = null;
+		window.ca_opts = null;
+
+		fn(opts);
+	}
 	
+	callAfter(callback, millis, opts) {
+		window.ca_requested = performance.now();
+		window.ca_fn = callback;
+		window.ca_millis = millis;
+		window.ca_opts = opts;
+		return setTimeout(this.checkCallAfter, 0);
+	}
+		
 	isPlaying() {
 		return this.playingPattern != null;
 	}
@@ -109,39 +137,50 @@ class Orchestrator {
 		}
 	}
 			
-	playEvents(track, startAt, justBefore) {
+	playEvents(track, startAt, justBefore, opts) {
 		if (!activeMidiOut) {
 			console.log('No active MIDI out port!');
 			return;
 		}
 
-		var f = 60000 / track.ppqn / this.tempo;
-		var startTime = performance.now();
+		var f = 60000 / this.tempo / track.ppqn;
+		var startTime = opts ? opts.startTime : performance.now();
 		var time = startTime;
 		var ticks = 0;
+		var adjustFirst = startAt > 0;
 		
 		for (var i=0; i<track.events.length; i++) {
 			var event = track.events[i];
 			if (event.type == 8 || event.type == 9 || (event.type == 255 && event.metaType == 47)) {
 				ticks += event.deltaTime;
+				if (adjustFirst)
+					time += event.deltaTime * f;
+				
 				if (ticks < startAt)
 					continue;					
 				if (ticks >= justBefore)
 					break;
 
-				time += (event.deltaTime * f);
-				if (event.type == 8 || event.type == 9)
-					activeMidiOut.send([event.type == 8 ? 0x80 : 0x90, event.data[0], event.data[1]], time);				
+				if (adjustFirst) {
+					adjustFirst = false;
+					time -= (ticks - startAt) * f;
+				} else {
+					time += event.deltaTime * f;
+				}
+				
+				if (event.type == 8 || event.type == 9) {
+					console.log('[' + time + ' // ' +  ticks + '] Playing: ' + JSON.stringify(event));
+					activeMidiOut.send([event.type == 8 ? 0x80 : 0x90, event.data[0], event.data[1]], time);
+				}					
 			}
 		}
 		
-		return f;
+		return { 
+			"t2tf": f,
+			"startTime": startTime
+		};
 	}
 	
-	roundToBeat(ticks, ppqn) {
-		return (Math.round(ticks / ppqn) + (ticks % ppqn == 0 ? 0 : 0)) * ppqn;
-	}
-
 	startPlayingPattern() {
 		this.tempo = this.song.tempo;
 		this.currentGroove = null;
@@ -157,15 +196,15 @@ class Orchestrator {
 			this.nextFill = pattern.fills[chosenFill];
 		}
 		
-		var grooveNoFillSectionLenght = this.nextFill ? (this.currentGroove.track.length - this.nextFill.track.length) : this.currentGroove.track.length + 1;
-		var f = this.playEvents(this.currentGroove.track, 0, grooveNoFillSectionLenght);
+		var grooveNoFillSectionLength = this.nextFill ? (this.currentGroove.track.length - this.nextFill.track.length) : this.currentGroove.track.length;
+		var data = this.playEvents(this.currentGroove.track, 0, grooveNoFillSectionLength + (this.nextFill ? 0 : 1));
 		this.playingWhat = 'groove';
 		
 		this.groovesRepeats = this.groovesRepeats + 1; 
-		setTimeout(this.onAllEventsPlayed, this.roundToBeat(grooveNoFillSectionLenght, this.currentGroove.track.ppqn) * f);
+		this.callAfter(this.onAllEventsPlayed, grooveNoFillSectionLength * data.t2tf, data);
 	}
-	
-	onAllEventsPlayed() {
+		
+	onAllEventsPlayed(opts) {
 		var lastPlayedWhat = this.playingWhat;
 		this.playingWhat = null
 
@@ -180,40 +219,41 @@ class Orchestrator {
 
 			if (fillAvailable) {
 				var fillSectionLengthInMillis = 0;
-				var ppqn = 0;
 				if (needToPlayFill) {
-					ppqn = this.nextFill.track.ppqn;
+					console.log('Playing the fill and into the next pattern');
 					this.fillsRepeats = this.fillsRepeats + 1; 
-					var f = this.playEvents(this.nextFill.track, 0, this.nextFill.track.length + 1);
+					var t2tf = this.playEvents(this.nextFill.track, 0, this.nextFill.track.length + 1).t2tf;
 					this.playingWhat = 'fill';
-					fillSectionLengthInMillis = this.nextFill.track.length * f;
+					fillSectionLengthInMillis = this.nextFill.track.length * t2tf;
 				} else  {
-					ppqn = this.currentGroove.track.ppqn;
-					var f = this.playEvents(this.currentGroove.track, 
-						this.currentGroove.track.length - (this.nextFill.track.length + 1),
-						this.currentGroove.track.length + 1);
+					console.log('No fill needed, play remaining of pattern');
+					var t2tf = this.playEvents(this.currentGroove.track, 
+						(this.currentGroove.track.length - this.nextFill.track.length), this.currentGroove.track.length + 1, opts).t2tf;
 					this.playingWhat = 'remainder';
-					fillSectionLengthInMillis = this.nextFill.track.length * f;
-				}				
-				setTimeout(this.onAllEventsPlayed, this.roundToBeat(fillSectionLengthInMillis, ppqn));
+					fillSectionLengthInMillis = this.nextFill.track.length * t2tf;
+				}
+				this.callAfter(this.onAllEventsPlayed, fillSectionLengthInMillis);
 				this.nextFill = null;
-			} // if no fill is available, all of the current groove events have already been played.			
-		} else if (lastPlayedWhat == 'fill' || lastPlayedWhat == 'remainder') {		
-			if (this.nextPattern) {
-				this.groovesRepeats = 0;
-				this.fillsRepeats = 0;
 				
-				console.log('To next pattern => ' + this.nextPattern);
-				
-				this.playingPattern = this.nextPattern;
-				this.nextPattern = null;
-			} else if (this.playingPattern) {
-				console.log('Repeat pattern => ' + this.playingPattern);
-			}
+				return;
+			} 
+			// else, if no fill is available, all of the current groove events have already been played.	
+		} 
+
+		if (this.nextPattern) {
+			this.groovesRepeats = 0;
+			this.fillsRepeats = 0;
 			
-			if (this.playingPattern)
-				this.startPlayingPattern();
+			console.log('To next pattern => ' + this.nextPattern);
+			
+			this.playingPattern = this.nextPattern;
+			this.nextPattern = null;
+		} else if (this.playingPattern) {
+			console.log('Repeat pattern => ' + this.playingPattern);
 		}
+		
+		if (this.playingPattern)
+			this.startPlayingPattern();
 	}	
 }
 
@@ -259,10 +299,6 @@ function midiSetup() {
 				opt.selected = 'selected';
 			sel.appendChild(opt);	 
 		});
-
-		access.onstatechange = function(e) {
-			console.log(e.port.name, e.port.manufacturer, e.port.state);
-		};
 		
 		switchMidiIn();
 		switchMidiOut();
@@ -373,13 +409,6 @@ function onPedal(pedal) {
 	orchestrator.playNext(patternName);
 }
   
-function playNote(note) {
-	var noteOnMessage  = [0x90, note, 127]; 
-	var noteOffMessage = [0x80, note, 127]; 
-	activeMidiOut.send(noteOnMessage);  
-	setTimeout(() => activeMidiOut.send(noteOffMessage), 500)
-}
-  
 function parseMidiMessage(message) {
 	return {
 		command: message.data[0] >> 4,
@@ -470,18 +499,6 @@ function enableTestKeys() {
 		console.log(e.keyCode);
 		
 		switch(e.keyCode) {
-			case 81: 
-				playNote('36');
-				return 
-			case 87: 
-				playNote('38');
-				return
-			case 80: 
-				playNote('46');
-				return
-			case 79: 
-				playNote('51');
-				return
 			case 90:
 				onPedal(1);
 				return
