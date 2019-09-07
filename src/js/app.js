@@ -82,7 +82,7 @@ class Orchestrator {
 		this.fillsRepeats = 0;
 		
 		this.playEvents = this.playEvents.bind(this);
-		this.onEndOfPattern = this.onEndOfPattern.bind(this);
+		this.onAllEventsPlayed = this.onAllEventsPlayed.bind(this);
 	}	
 	
 	isPlaying() {
@@ -122,7 +122,7 @@ class Orchestrator {
 		
 		for (var i=0; i<track.events.length; i++) {
 			var event = track.events[i];
-			if (event.type == 8 || event.type == 9) {
+			if (event.type == 8 || event.type == 9 || (event.type == 255 && event.metaType == 47)) {
 				ticks += event.deltaTime;
 				if (ticks < startAt)
 					continue;					
@@ -130,11 +130,16 @@ class Orchestrator {
 					break;
 
 				time += (event.deltaTime * f);
-				activeMidiOut.send([event.type == 8 ? 0x80 : 0x90, event.data[0], event.data[1]], time);				
+				if (event.type == 8 || event.type == 9)
+					activeMidiOut.send([event.type == 8 ? 0x80 : 0x90, event.data[0], event.data[1]], time);				
 			}
 		}
 		
 		return f;
+	}
+	
+	roundToBeat(ticks, ppqn) {
+		return (Math.round(ticks / ppqn) + (ticks % ppqn == 0 ? 0 : 0)) * ppqn;
 	}
 
 	startPlayingPattern() {
@@ -152,15 +157,15 @@ class Orchestrator {
 			this.nextFill = pattern.fills[chosenFill];
 		}
 		
-		var grooveNoFillSectionLenght = this.nextFill ? (this.currentGroove.track.length - this.nextFill.track.length) : this.currentGroove.track.length;
+		var grooveNoFillSectionLenght = this.nextFill ? (this.currentGroove.track.length - this.nextFill.track.length) : this.currentGroove.track.length + 1;
 		var f = this.playEvents(this.currentGroove.track, 0, grooveNoFillSectionLenght);
 		this.playingWhat = 'groove';
 		
 		this.groovesRepeats = this.groovesRepeats + 1; 
-		setTimeout(this.onEndOfPattern, grooveNoFillSectionLenght * f);
+		setTimeout(this.onAllEventsPlayed, this.roundToBeat(grooveNoFillSectionLenght, this.currentGroove.track.ppqn) * f);
 	}
 	
-	onEndOfPattern() {
+	onAllEventsPlayed() {
 		var lastPlayedWhat = this.playingWhat;
 		this.playingWhat = null
 
@@ -175,19 +180,22 @@ class Orchestrator {
 
 			if (fillAvailable) {
 				var fillSectionLengthInMillis = 0;
+				var ppqn = 0;
 				if (needToPlayFill) {
+					ppqn = this.nextFill.track.ppqn;
 					this.fillsRepeats = this.fillsRepeats + 1; 
 					var f = this.playEvents(this.nextFill.track, 0, this.nextFill.track.length + 1);
 					this.playingWhat = 'fill';
 					fillSectionLengthInMillis = this.nextFill.track.length * f;
 				} else  {
+					ppqn = this.currentGroove.track.ppqn;
 					var f = this.playEvents(this.currentGroove.track, 
-						this.currentGroove.track.length - this.nextFill.track.length,
+						this.currentGroove.track.length - (this.nextFill.track.length + 1),
 						this.currentGroove.track.length + 1);
 					this.playingWhat = 'remainder';
 					fillSectionLengthInMillis = this.nextFill.track.length * f;
 				}				
-				setTimeout(this.onEndOfPattern, fillSectionLengthInMillis);
+				setTimeout(this.onAllEventsPlayed, this.roundToBeat(fillSectionLengthInMillis, ppqn));
 				this.nextFill = null;
 			} // if no fill is available, all of the current groove events have already been played.			
 		} else if (lastPlayedWhat == 'fill' || lastPlayedWhat == 'remainder') {		
