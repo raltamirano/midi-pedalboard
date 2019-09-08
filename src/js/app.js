@@ -68,6 +68,29 @@ class Song {
 			}
 		}
 	}
+	
+	renamePattern(from, to) {
+		if (!from || !to || from == to)
+			return false;
+		
+		var pattern = this.patterns[from];
+		if (!pattern)
+			return false;
+		
+		pattern.name = to;
+		delete this.patterns[from];
+		this.patterns[to] = pattern;
+
+		// TODO: Fix references in actions!
+		
+		return true;
+	}
+	
+	deletePattern(name) {
+		delete this.patterns[name];
+		
+		// TODO: Remove references in actions!
+	}
 }
 
 class Orchestrator {
@@ -337,9 +360,17 @@ function loadSong() {
 }
 
 function onSongPatternChange() {
+	var patternName = $('#editPatternName');
+	var patternTempo = $('#editPatternTempo');
+	var patternGroovesMode = $('#editPatternGroovesMode');
+	var patternFillsMode = $('#editPatternFillsMode');
 	var patternGrooves = $('#editPatternGrooves');
 	var patternFills = $('#editPatternFills');
 	
+	patternName.val('');
+	patternTempo.val(0);
+	patternGroovesMode.val('sequence');
+	patternFillsMode.val('sequence');
 	patternGrooves.empty();
 	patternFills.empty();
 	
@@ -348,6 +379,11 @@ function onSongPatternChange() {
 		return;
 
 	var pattern = song.patterns[editingPatternName];
+	
+	patternName.val(pattern.name);
+	patternTempo.val(pattern.tempo);
+	patternGroovesMode.val(pattern.groovesMode);
+	patternFillsMode.val(pattern.fillsMode);
 
 	for(var i=0; i<pattern.grooves.length; i++) {
 		var groove = pattern.grooves[i];
@@ -395,7 +431,33 @@ function onSongAttributeChange(name, value) {
 		var newTempo = parseInt(value);
 		if (newTempo > 0 && newTempo < 10000 && song.tempo != newTempo)
 			song.tempo = newTempo;
-	}
+	}	
+}
+
+function onPatternAttributeChange(name, value) {
+	var selectedPatternName = $("#editingPattern").val();
+	if (!selectedPatternName)
+		return;
+	
+	var pattern = song.patterns[selectedPatternName];
+
+	if (name == 'name') {
+		if (song.renamePattern(pattern.name, value)) {
+			var patterns = $('#editingPattern');
+			patterns.empty();			
+			for (patternName in song.patterns)
+				patterns.append($("<option />").val(patternName).text(patternName));			
+			patterns.val(value);
+		}
+	} else if (name == 'tempo') {
+		var newTempo = parseInt(value);
+		if (newTempo >= 0 && newTempo < 10000 && pattern.tempo != newTempo)
+			pattern.tempo = newTempo;
+	} else if (name == 'groovesMode') {
+		pattern.groovesMode = value;
+	} else if (name == 'fillsMode') {
+		pattern.fillsMode = value;
+	}	
 }
 
 function onMidiMessage(message) {
@@ -437,6 +499,15 @@ function playMode() {
 			
 function createPattern() {
 	song.createPattern();
+	loadSong();
+}
+
+function deletePattern() {
+	var selectedPatternName = $("#editingPattern").val();
+	if (!selectedPatternName)
+		return;
+
+	song.deletePattern(selectedPatternName);
 	loadSong();
 }
 
@@ -495,9 +566,7 @@ function createPatternFill() {
 
 
 function enableTestKeys() {
-	$(document).keydown(function(e) { 
-		console.log(e.keyCode);
-		
+	$(document).keydown(function(e) { 		
 		switch(e.keyCode) {
 			case 90:
 				onPedal(1);

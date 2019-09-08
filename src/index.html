@@ -30,7 +30,7 @@
 				<div class="col-3 m-0 p-0">
 					<label>Song&nbsp;</label>
 					<input id="songTitle" type="text" 
-						onchange="onSongAttributeChange('name', this.value)" />
+						onchange="onSongAttributeChange('title', this.value)" />
 				</div>
 
 				<div class="col-3 m-0 p-0">
@@ -97,23 +97,27 @@
 							<div class="row w-100">
 								<div class="col-3">
 									<label>Name&nbsp;&nbsp;</label>
-									<input id="editPatternName" type="text" />
+									<input id="editPatternName" type="text" 
+										onchange="onPatternAttributeChange('name', this.value)" />
 								</div>
 								<div class="col-3">
 									<label title="(0 = same as song's tempo)">Tempo&nbsp;</label>
 									<input id="editPatternTempo" type="number" min="0" max="10000" value="0"
-										title="(0 = same as song's tempo)" />
+										title="(0 = same as song's tempo)"
+										onchange="onPatternAttributeChange('tempo', this.value)" />
 								</div>
 								<div class="col-3">
 									<label>Grooves mode&nbsp;</label>
-									<select id="editPatternGroovesMode">
+									<select id="editPatternGroovesMode"
+										onchange="onPatternAttributeChange('groovesMode', this.value)">
 										<option value="sequence" selected="selected">Sequence</option>
 										<option value="random">Random</option>
 									</select>
 								</div>
 								<div class="col-3">
 									<label>Fills mode&nbsp;</label>
-									<select id="editPatternFillsMode">
+									<select id="editPatternFillsMode"
+										onchange="onPatternAttributeChange('fillsMode', this.value)" >
 										<option value="sequence" selected="selected">Sequence</option>
 										<option value="random">Random</option>
 									</select>
