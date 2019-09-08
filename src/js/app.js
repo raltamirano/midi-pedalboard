@@ -93,8 +93,10 @@ class Song {
 	}
 }
 
-class Orchestrator {
+class Orchestrator extends EventTarget {
 	constructor(song) {
+		super();
+		
 		this.song = song;
 		this.tempo = song.tempo;
 		this.playingPattern = null;
@@ -104,6 +106,7 @@ class Orchestrator {
 		this.groovesRepeats = 0;
 		this.fillsRepeats = 0;
 		
+		this.firePlayStatusChanged = this.firePlayStatusChanged.bind(this);
 		this.playEvents = this.playEvents.bind(this);
 		this.onAllEventsPlayed = this.onAllEventsPlayed.bind(this);
 		this.checkCallAfter = this.checkCallAfter.bind(this);
@@ -139,6 +142,15 @@ class Orchestrator {
 	isPlaying() {
 		return this.playingPattern != null;
 	}
+
+	firePlayStatusChanged() {
+		this.dispatchEvent(new CustomEvent("playStatusChanged", { 
+			"detail": { 
+				"currentPattern": this.playingPattern,
+				"nextPattern": this.nextPattern 
+			} 
+		}));		
+	}
 	
 	playNext(patternName) {
 		var pattern = this.song.patterns[patternName];
@@ -158,6 +170,7 @@ class Orchestrator {
 				this.nextPattern = pattern.name;
 			}
 		}
+		this.firePlayStatusChanged();
 	}
 			
 	playEvents(track, startAt, justBefore, opts) {
@@ -192,7 +205,7 @@ class Orchestrator {
 				}
 				
 				if (event.type == 8 || event.type == 9) {
-					console.log('[' + time + ' // ' +  ticks + '] Playing: ' + JSON.stringify(event));
+					//console.log('[' + time + ' // ' +  ticks + '] Playing: ' + JSON.stringify(event));
 					activeMidiOut.send([event.type == 8 ? 0x80 : 0x90, event.data[0], event.data[1]], time);
 				}					
 			}
@@ -225,6 +238,8 @@ class Orchestrator {
 		
 		this.groovesRepeats = this.groovesRepeats + 1; 
 		this.callAfter(this.onAllEventsPlayed, grooveNoFillSectionLength * data.t2tf, data);
+		
+		this.firePlayStatusChanged();
 	}
 		
 	onAllEventsPlayed(opts) {
@@ -258,6 +273,7 @@ class Orchestrator {
 				this.callAfter(this.onAllEventsPlayed, fillSectionLengthInMillis);
 				this.nextFill = null;
 				
+				this.firePlayStatusChanged();
 				return;
 			} 
 			// else, if no fill is available, all of the current groove events have already been played.	
@@ -284,7 +300,7 @@ class Orchestrator {
 var activeMidiIn = null;
 var activeMidiOut = null;
 var song = new Song();
-var orchestrator = new Orchestrator(song);
+var orchestrator = null;
 
 $(document).ready(function() {
 	editMode();
@@ -328,11 +344,27 @@ function midiSetup() {
 	});
 }	
 
+function onPlayStatusChanged(e) {
+	var currentlyPlayingPattern = $('#currentlyPlayingPattern');
+	var nextPattern = $('#nextPattern');
+	var currentlyPlayingPatternTempo = $('#currentlyPlayingPatternTempo');
+	var nextPatternTempo = $('#nextPatternTempo');
+	
+	var currentPatternData = song.patterns[e.detail.currentPattern];
+	var nextPatternData = song.patterns[e.detail.nextPattern];
+	
+	currentlyPlayingPattern.html(currentPatternData ? currentPatternData.name : 'NO PATTERN');
+	currentlyPlayingPatternTempo.html('');
+	nextPattern.html(nextPatternData ? '(Next: ' + nextPatternData.name + ')' : '');
+	nextPatternTempo.html('');
+}
 
 function loadSong() {
-	orchestrator = new Orchestrator(song);
 	console.log(JSON.stringify(song, null, 2));
-	
+
+	orchestrator = new Orchestrator(song);
+	orchestrator.addEventListener('playStatusChanged', onPlayStatusChanged);
+		
 	$('#songTitle').val(song.title);
 	$('#songTempo').val(song.tempo);
 

@@ -1,0 +1,22 @@
+.currentlyPlayingPattern {
+	font-size: 8em;
+	font-weight: bolder;
+	height: 1.1em;
+}
+
+.currentlyPlayingPatternTempo {
+	font-size: 4em;
+	font-weight: bolder;
+}
+
+.nextPattern {
+	font-size: 3em;
+	font-weight: bolder;
+	height: 1.1em;
+	margin-top: 1.1em;
+}
+
+.nextPatternTempo {
+	font-size: 1.5em;
+	font-weight: bolder;
+}
