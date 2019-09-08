@@ -88,28 +88,28 @@ class Orchestrator {
 	}	
 
 	checkCallAfter() {
-		var elapsed = performance.now() - window.ca_requested;
-		if (elapsed < window.ca_millis)
+		var elapsed = performance.now() - this.ca_requested;
+		if (elapsed < this.ca_millis)
 			return setTimeout(this.checkCallAfter, 0);
 
 		console.log('checkCallAfter actually executed after: ' + elapsed + ' ms'); 
 		
-		var fn = window.ca_fn;
-		var opts = window.ca_opts;
+		var fn = this.ca_fn;
+		var opts = this.ca_opts;
 		
-		window.ca_requested = null;
-		window.ca_fn = null;
-		window.ca_millis = null;
-		window.ca_opts = null;
+		delete this['ca_requested'];
+		delete this['ca_fn'];
+		delete this['ca_millis'];
+		delete this['ca_opts'];
 
 		fn(opts);
 	}
 	
 	callAfter(callback, millis, opts) {
-		window.ca_requested = performance.now();
-		window.ca_fn = callback;
-		window.ca_millis = millis;
-		window.ca_opts = opts;
+		this.ca_requested = performance.now();
+		this.ca_fn = callback;
+		this.ca_millis = millis;
+		this.ca_opts = opts;
 		return setTimeout(this.checkCallAfter, 0);
 	}
 		
@@ -272,7 +272,7 @@ $(document).ready(function() {
 
 function midiSetup() {
 	navigator.requestMIDIAccess().then(function(access) {
-		window.ma = access;
+		this.ma = access;
 
 		const inputs = access.inputs.values();
 		const outputs = access.outputs.values();
@@ -368,7 +368,7 @@ function switchMidiIn() {
 	
 	var portID = $('#midiIns').val();
 	if (portID) {
-		activeMidiIn = window.ma.inputs.get(portID);
+		activeMidiIn = this.ma.inputs.get(portID);
 		activeMidiIn.onmidimessage = onMidiMessage;
 		activeMidiIn.open();
 		window.localStorage.setItem('midiIn', activeMidiIn.id);
@@ -382,7 +382,7 @@ function switchMidiOut() {
 	
 	var portID = $('#midiOuts').val();
 	if (portID) {
-		activeMidiOut = window.ma.outputs.get(portID);
+		activeMidiOut = this.ma.outputs.get(portID);
 		window.localStorage.setItem('midiOut', activeMidiOut.id);
 	}
 }
