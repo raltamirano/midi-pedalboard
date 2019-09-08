@@ -103,10 +103,11 @@ class Orchestrator extends EventTarget {
 		this.playingWhat = null;
 		this.currentGroove = null;
 		this.nextPattern = null;
-		this.groovesRepeats = 0;
-		this.fillsRepeats = 0;
+		this.groovesRepeats = {};
+		this.fillsRepeats = {};
 		
 		this.firePlayStatusChanged = this.firePlayStatusChanged.bind(this);
+		this.startPlayingPattern = this.startPlayingPattern.bind(this);
 		this.playEvents = this.playEvents.bind(this);
 		this.onAllEventsPlayed = this.onAllEventsPlayed.bind(this);
 		this.checkCallAfter = this.checkCallAfter.bind(this);
@@ -225,10 +226,13 @@ class Orchestrator extends EventTarget {
 		console.log('Play pattern => ' + this.playingPattern);
 		var pattern = this.song.patterns[this.playingPattern];
 		this.tempo = pattern.tempo > 0 ? pattern.tempo : this.song.tempo;
-		var chosenGroove = pattern.groovesMode == 'sequence' ? this.groovesRepeats % pattern.grooves.length : Math.floor(Math.random() * pattern.grooves.length);
+		var groovesRepeatsValue = (pattern.name in this.groovesRepeats) ? this.groovesRepeats[pattern.name] : 0;
+		var fillsRepeatsValue = (pattern.name in this.fillsRepeats) ? this.fillsRepeats[pattern.name] : 0; 
+		
+		var chosenGroove = pattern.groovesMode == 'sequence' ? groovesRepeatsValue % pattern.grooves.length : Math.floor(Math.random() * pattern.grooves.length);
 		this.currentGroove = pattern.grooves[chosenGroove];
 		if (pattern.fills.length > 0) {
-			var chosenFill = pattern.fillsMode == 'sequence' ? this.fillsRepeats % pattern.fills.length : Math.floor(Math.random() * pattern.fills.length);
+			var chosenFill = pattern.fillsMode == 'sequence' ? fillsRepeatsValue % pattern.fills.length : Math.floor(Math.random() * pattern.fills.length);
 			this.nextFill = pattern.fills[chosenFill];
 		}
 		
@@ -236,7 +240,7 @@ class Orchestrator extends EventTarget {
 		var data = this.playEvents(this.currentGroove.track, 0, grooveNoFillSectionLength + (this.nextFill ? 0 : 1));
 		this.playingWhat = 'groove';
 		
-		this.groovesRepeats = this.groovesRepeats + 1; 
+		this.groovesRepeats[pattern.name] = groovesRepeatsValue + 1; 
 		this.callAfter(this.onAllEventsPlayed, grooveNoFillSectionLength * data.t2tf, data);
 		
 		this.firePlayStatusChanged();
@@ -259,7 +263,7 @@ class Orchestrator extends EventTarget {
 				var fillSectionLengthInMillis = 0;
 				if (needToPlayFill) {
 					console.log('Playing the fill and into the next pattern');
-					this.fillsRepeats = this.fillsRepeats + 1; 
+					this.fillsRepeats[this.playingPattern] = (this.playingPattern in this.fillsRepeats) ? this.fillsRepeats[this.playingPattern] + 1 : 1; 
 					var t2tf = this.playEvents(this.nextFill.track, 0, this.nextFill.track.length + 1).t2tf;
 					this.playingWhat = 'fill';
 					fillSectionLengthInMillis = this.nextFill.track.length * t2tf;
@@ -280,9 +284,6 @@ class Orchestrator extends EventTarget {
 		} 
 
 		if (this.nextPattern) {
-			this.groovesRepeats = 0;
-			this.fillsRepeats = 0;
-			
 			console.log('To next pattern => ' + this.nextPattern);
 			
 			this.playingPattern = this.nextPattern;
