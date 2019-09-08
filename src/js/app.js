@@ -492,10 +492,11 @@ function onPatternAttributeChange(name, value) {
 	}	
 }
 
-function onMidiMessage(message) {
-	//var midiMessage = parseMidiMessage(message)
-	//if (midiMessage.velocity > 0) 
-	//	onPedal(midiMessage.note-59);
+function onMidiMessage(message) {	
+	var midiMessage = parseMidiMessage(message)
+	console.log('MIDI In=' + JSON.stringify(midiMessage, null, 2));
+	if (midiMessage.velocity > 0) 
+		onPedal(midiMessage.note-59);
 }
   
 function onPedal(pedal) {
