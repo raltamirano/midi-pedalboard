@@ -1,2 +1,2 @@
 # midi-pedalboard
-MIDI Pedalboard companion app
+MIDI Pedalboard app
