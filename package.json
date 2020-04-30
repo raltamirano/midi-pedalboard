@@ -5,7 +5,7 @@
   "main": "src/index.html",
   "dependencies": {
     "bootstrap": "^4.3.1",
-    "jquery": "^3.4.1",
+    "jquery": "^3.5.0",
     "midi-parser-js": "^4.0.4"
   },
   "devDependencies": {},
